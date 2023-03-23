@@ -7,7 +7,7 @@ import stable_baselines3 as sb3
 
 import tactile_gym.rl_envs
 from tactile_gym.sb3_helpers.rl_utils import make_eval_env
-from tactile_gym.utils.general_utils import load_json_obj
+from tactile_learning.utils.utils_learning import load_json_obj
 
 
 def eval_and_save_vid(
@@ -84,22 +84,25 @@ def final_evaluation(
     deterministic=True,
     show_gui=True,
     show_tactile=True,
+    show_vision=True,
     render=False,
     save_vid=False,
     take_snapshot=False,
 ):
 
     rl_params = load_json_obj(os.path.join(saved_model_dir, "rl_params"))
-    algo_params = load_json_obj(os.path.join(saved_model_dir, "algo_params"))
+    env_args = load_json_obj(os.path.join(saved_model_dir, "env_args"))
 
-    print(rl_params['env_name'])
-    print(rl_params['env_modes'])
+    # overwrite display params
+    env_args['env_params']['show_gui'] = show_gui
+    env_args['tactile_sensor_params']['show_tactile'] = show_tactile
+    env_args['visual_sensor_params']['show_vision'] = show_vision
+
     # create the evaluation env
     eval_env = make_eval_env(
-        rl_params["env_name"],
-        rl_params,
-        show_gui=show_gui,
-        show_tactile=show_tactile,
+        rl_params["env_id"],
+        env_args,
+        rl_params
     )
 
     # load the trained model
@@ -143,33 +146,38 @@ if __name__ == "__main__":
     seed = int(1)
     deterministic = True
     show_gui = True
-    show_tactile = True
+    show_tactile = False
+    show_vision = False
     render = False
     save_vid = False
     take_snapshot = False
 
-    ## load the trained model
-    # algo_name = 'ppo'
-    algo_name = "rad_ppo"
+    # load the trained model
+    algo_name = 'ppo'
     # algo_name = 'sac'
-    # algo_name = 'rad_sac'
 
-    # env_name = 'edge_follow-v0'
-    # env_name = "surface_follow-v0"
-    env_name = "surface_follow-v1"
-    # env_name = 'surface_follow-v2'
-    # env_name = 'object_roll-v0'
-    # env_name = 'object_push-v0'
-    # env_name = 'object_balance-v0'
+    # env_id = 'edge_follow-v0'
+    env_id = "surface_follow-v0"
+    # env_id = "surface_follow-v1"
+    # env_id = 'surface_follow-v2'
+    # env_id = 'object_roll-v0'
+    # env_id = 'object_push-v0'
+    # env_id = 'object_balance-v0'
 
-    # obs_type = 'oracle'
-    # obs_type = "s1_tactile"
-    obs_type = "s1_tactile_and_feature"
+    # obs_type = 's1_oracle'
+    obs_type = "s1_tactile"
+    # obs_type = "s1_tactile_and_feature"
     # obs_type = 'visual'
     # obs_type = 'visuotactile'
 
-    ## combine args
-    saved_model_dir = os.path.join(os.path.dirname(__file__), "saved_models", env_name, algo_name, obs_type)
+    # combine args
+    saved_model_dir = os.path.join(
+        os.path.dirname(__file__),
+        "saved_models",
+        env_id,
+        algo_name,
+        obs_type
+    )
 
     final_evaluation(
         saved_model_dir,
@@ -178,6 +186,7 @@ if __name__ == "__main__":
         deterministic=deterministic,
         show_gui=show_gui,
         show_tactile=show_tactile,
+        show_vision=show_vision,
         render=render,
         save_vid=save_vid,
         take_snapshot=take_snapshot,

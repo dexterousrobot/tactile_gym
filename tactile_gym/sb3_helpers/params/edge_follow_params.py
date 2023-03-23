@@ -1,59 +1,66 @@
 import torch.nn as nn
-import kornia.augmentation as K
 from stable_baselines3.common.torch_layers import NatureCNN
 from tactile_gym.sb3_helpers.custom.custom_torch_layers import CustomCombinedExtractor
 
-# ============================== RAD ==============================
-augmentations = nn.Sequential(
-    K.RandomAffine(degrees=0, translate=[0.05, 0.05], scale=[1.0, 1.0], p=0.5),
-)
-
-# ============================== PPO ==============================
-rl_params_ppo = {
-    # ==== env params ====
-    "algo_name": "ppo",
-    "env_name": "edge_follow-v0",
-    "max_ep_len": 200,
-    "image_size": [128, 128],
-    "env_modes": {
-        ## which dofs can have movement
-        "movement_mode": "xy",
-        # specify the arm and the tactile sensor
-        # "arm_type": 'mg400',
-        "arm_type": 'ur5',
-        # "tactile_sensor_name": 'digit',
-        # "tactile_sensor_name": 'tactip',
-        "tactile_sensor_name": 'digitac',
-        ## the type of control used
-        # "control_mode": "TCP_position_control",
-        "control_mode": "TCP_velocity_control",
-
-        # add variation to embed distance to optimise for
-        # 'noise_mode':'fixed_height',
-        "noise_mode": "rand_height",
-
-        ## which observation type to return
+env_args = {
+    "env_params": {
+        "max_steps": 200,
+        "show_gui": False,
         # "observation_mode": "oracle",
-        "observation_mode": "tactile",
-        # 'observation_mode':'visual',
-        # 'observation_mode':'visuotactile',
-
-        ## which reward type to use (currently only dense)
-        "reward_mode": "dense"
-        # 'reward_mode':'sparse'
+        'observation_mode': 'tactile',
+        # 'observation_mode': 'visual',
+        # 'observation_mode': 'visuotactile',
+        # 'observation_mode': 'tactile_and_feature',
+        # 'observation_mode': 'visual_and_feature',
+        # 'observation_mode': 'visuotactile_and_feature',
     },
-    # ==== control params ====
-    'policy': 'MultiInputPolicy',
+    "robot_arm_params": {
+        "type": "ur5",
+        # "type": "franka_panda",
+        # "type": "kuka_iiwa",
+        # "type": "cr3",
+        # "type": "mg400",
+
+        # "control_mode": "tcp_position_control",
+        "control_mode": "tcp_velocity_control",
+        "control_dofs": ['x', 'y'],
+
+        # the type of control used
+        # "control_mode": "joint_position_control",
+        # "control_mode": "joint_velocity_control",
+        # "control_dofs": ['J1', 'J2', 'J3', 'J4', 'J5', 'J6'],
+        # "control_dofs": ['J1', 'J2', 'J3', 'J4', 'J5', 'J6', 'J7'],
+    },
+    "tactile_sensor_params": {
+        "type": "standard_tactip",
+        # "type": "standard_digit",
+        # "type": "standard_digitac",
+
+        "image_size": [128, 128],
+        "turn_off_border": False,
+        "show_tactile": False,
+    },
+    "visual_sensor_params": {
+        'image_size': [128, 128],
+        'show_vision': False
+    }
+}
+
+rl_params_ppo = {
+    "algo_name": "ppo",
+    "env_id": "edge_follow-v0",
+    "policy": "MultiInputPolicy",
     "seed": int(1),
     "n_stack": 1,
-    "total_timesteps": int(3e6),
+    "total_timesteps": int(1e6),
     "n_eval_episodes": 10,
     "n_envs": 10,
     "eval_freq": 2e3,
+    "norm_obs": False,
+    "norm_reward": False,
 }
 
 ppo_params = {
-    # === net arch ===
     "policy_kwargs": {
         "features_extractor_class": CustomCombinedExtractor,
         "features_extractor_kwargs": {
@@ -61,16 +68,14 @@ ppo_params = {
             'cnn_output_dim': 256,
             'mlp_extractor_net_arch': [64, 64],
         },
-        "net_arch": [dict(pi=[256, 256], vf=[256, 256])],
+        "net_arch": dict(pi=[256, 256], vf=[256, 256]),
         "activation_fn": nn.Tanh,
     },
-
-    # ==== rl params ====
     "learning_rate": 3e-4,
     "n_steps": int(2048),
     "batch_size": 64,
     "n_epochs": 10,
-    "gamma": 0.95,
+    "gamma": 0.99,
     "gae_lambda": 0.9,
     "clip_range": 0.2,
     "clip_range_vf": None,
@@ -83,37 +88,9 @@ ppo_params = {
 }
 
 
-# ============================== SAC ==============================
-
 rl_params_sac = {
-    # ==== env params ====
     "algo_name": "sac",
-    "env_name": "edge_follow-v0",
-    "max_ep_len": 200,
-    "image_size": [128, 128],
-    "env_modes": {
-        ## which dofs can have movement
-        "movement_mode": "xy",
-
-        ## the type of control used
-        # "control_mode": "TCP_position_control",
-        "control_mode": "TCP_velocity_control",
-
-        # add variation to embed distance to optimise for
-        # 'noise_mode':'fixed_height',
-        "noise_mode": "rand_height",
-
-        ## which observation type to return
-        # "observation_mode": "oracle",
-        "observation_mode": "tactile",
-        # 'observation_mode':'visual',
-        # 'observation_mode':'visuotactile',
-
-        ## which reward type to use (currently only dense)
-        "reward_mode": "dense"
-        # 'reward_mode':'sparse'
-    },
-    # ==== control params ====
+    "env_id": "edge_follow-v0",
     'policy': 'MultiInputPolicy',
     "seed": int(1),
     "n_stack": 1,
@@ -124,7 +101,6 @@ rl_params_sac = {
 }
 
 sac_params = {
-    # === net arch ===
     "policy_kwargs": {
         "features_extractor_class": CustomCombinedExtractor,
         "features_extractor_kwargs": {
@@ -135,8 +111,6 @@ sac_params = {
         "net_arch": dict(pi=[256, 256], qf=[256, 256]),
         "activation_fn": nn.Tanh,
     },
-
-    # ==== rl params ====
     "learning_rate": 3e-4,
     "buffer_size": int(1e5),
     "learning_starts": 1e4,

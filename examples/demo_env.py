@@ -1,5 +1,7 @@
 from tactile_gym.utils.demo_utils import demo_rl_env
-from tactile_gym.rl_envs.example_envs.example_arm_env.example_arm_env import ExampleArmEnv
+import gym
+import tactile_gym.rl_envs
+import pybullet as pb
 
 
 def main():
@@ -10,20 +12,22 @@ def main():
     print_info = False
     image_size = [128, 128]  # sets both rgb and tactile images
 
+    # env_id = 'example_arm-v0'
+    # env_id = 'edge_follow-v0'
+    # env_id = 'surface_follow-v0'
+    env_id = 'surface_follow-v1'
+
     env_params = {
         "max_steps": 10_000,
         "show_gui": True,
 
         "observation_mode": "oracle",
         # 'observation_mode': 'tactile',
-        # 'observation_mode':'visual',
-        # 'observation_mode':'visuotactile',
-        # 'observation_mode':'tactile_and_feature',
-        # 'observation_mode':'visual_and_feature',
-        # 'observation_mode':'visuotactile_and_feature',
-
-        # 'reward_mode':'sparse'
-        "reward_mode": "dense",
+        # 'observation_mode': 'visual',
+        # 'observation_mode': 'visuotactile',
+        # 'observation_mode': 'tactile_and_feature',
+        # 'observation_mode': 'visual_and_feature',
+        # 'observation_mode': 'visuotactile_and_feature',
     }
 
     robot_arm_params = {
@@ -41,6 +45,7 @@ def main():
         # "control_mode": "joint_position_control",
         "control_mode": "joint_velocity_control",
         "control_dofs": ['J1', 'J2', 'J3', 'J4', 'J5', 'J6'],
+        # "control_dofs": ['J1', 'J2', 'J3', 'J4', 'J5', 'J6', 'J7'],
     }
 
     tactile_sensor_params = {
@@ -58,7 +63,8 @@ def main():
         'show_vision': False
     }
 
-    env = ExampleArmEnv(
+    env = gym.make(
+        id=env_id,
         env_params=env_params,
         robot_arm_params=robot_arm_params,
         tactile_sensor_params=tactile_sensor_params,
@@ -71,7 +77,7 @@ def main():
 
     # create controllable parameters on GUI
     min_action, max_action = env.min_action, env.max_action
-    action_ids = [env._pb.addUserDebugParameter(control_dof, min_action, max_action, 0)
+    action_ids = [pb.addUserDebugParameter(control_dof, min_action, max_action, 0)
                   for control_dof in robot_arm_params["control_dofs"]]
 
     # run the control loop

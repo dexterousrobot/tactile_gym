@@ -1,18 +1,16 @@
-import os
 import gym
-import stable_baselines3 as sb3
 from stable_baselines3.common.vec_env import (
     DummyVecEnv,
     SubprocVecEnv,
     VecTransposeImage,
     VecFrameStack,
+    VecNormalize,
 )
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.env_util import make_vec_env
 
 
-def make_training_envs(env_id, rl_params, save_dir):
+def make_training_envs(env_id, env_args, rl_params, save_dir):
 
     env = make_vec_env(
         env_id,
@@ -20,14 +18,17 @@ def make_training_envs(env_id, rl_params, save_dir):
         seed=rl_params["seed"],
         vec_env_cls=SubprocVecEnv,
         monitor_dir=save_dir,
-        env_kwargs={
-            "show_gui": False,
-            "show_tactile": False,
-            "max_steps": rl_params["max_ep_len"],
-            "image_size": rl_params["image_size"],
-            "env_modes": rl_params["env_modes"],
-        },
+        env_kwargs=env_args,
     )
+
+    # normalize obs/rew with running metrics
+    env = VecNormalize(
+        env,
+        training=True,
+        norm_obs=rl_params['norm_obs'],
+        norm_reward=rl_params['norm_reward'],
+    )
+
     # stack the images for frame history
     env = VecFrameStack(env, n_stack=rl_params["n_stack"])
 
@@ -38,28 +39,28 @@ def make_training_envs(env_id, rl_params, save_dir):
 
 
 def make_eval_env(
-    env_name,
-    rl_params,
-    show_gui=False,
-    show_tactile=False,
+    env_id,
+    env_args,
+    rl_params
 ):
     """
     Make a single environment with visualisation specified.
     """
-    eval_env = gym.make(
-        env_name,
-        max_steps=rl_params["max_ep_len"],
-        image_size=rl_params["image_size"],
-        env_modes=rl_params["env_modes"],
-        show_gui=show_gui,
-        show_tactile=show_tactile,
-    )
+    eval_env = gym.make(env_id, **env_args)
 
     # wrap in monitor
     eval_env = Monitor(eval_env)
 
     # dummy vec env generally faster than SubprocVecEnv for small networks
     eval_env = DummyVecEnv([lambda: eval_env])
+
+    # normalize obs/rew with running metrics
+    eval_env = VecNormalize(
+        eval_env,
+        training=False,
+        norm_obs=rl_params['norm_obs'],
+        norm_reward=rl_params['norm_reward'],
+    )
 
     # stack observations
     eval_env = VecFrameStack(eval_env, n_stack=rl_params["n_stack"])

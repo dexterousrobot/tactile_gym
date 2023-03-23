@@ -1,13 +1,13 @@
 from gym.envs.registration import register
 
 register(
-    id="edge_follow-v0",
-    entry_point="tactile_gym.rl_envs.exploration.edge_follow.edge_follow_env:EdgeFollowEnv",
+    id="example_arm-v0",
+    entry_point="tactile_gym.rl_envs.example_envs.example_arm_env.example_arm_env:ExampleArmEnv",
 )
 
 register(
-    id="edge_follow_aotu-v0",
-    entry_point="tactile_gym.rl_envs.exploration.edge_follow.edge_follow_env:EdgeFollowAutoEnv",
+    id="edge_follow-v0",
+    entry_point="tactile_gym.rl_envs.exploration.edge_follow.edge_follow_env:EdgeFollowEnv",
 )
 
 register(

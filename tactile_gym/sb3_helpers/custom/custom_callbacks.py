@@ -1,7 +1,5 @@
 import matplotlib.pyplot as plt
-import numpy as np
 from tqdm.auto import tqdm
-import time
 import os
 
 from stable_baselines3.common.callbacks import BaseCallback
@@ -74,7 +72,8 @@ class FullPlottingCallback(BaseCallback):
             ax.set_xlim([self._total_timesteps * -0.02, self._total_timesteps * 1.02])
             ax.autoscale_view(True, True, True)
 
-        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()   # update the plot
+        plt.pause(0.0001)
 
         self.fig.savefig(
             os.path.join(self._log_dir, "learning_curves.png"),
@@ -110,7 +109,6 @@ class ProgressBarManager(object):
 
     def __enter__(self):  # create the progress bar and callback, return the callback
         self.pbar = tqdm(total=self.total_timesteps)
-
         return ProgressBarCallback(self.pbar)
 
     def __exit__(self, exc_type, exc_val, exc_tb):  # close the callback

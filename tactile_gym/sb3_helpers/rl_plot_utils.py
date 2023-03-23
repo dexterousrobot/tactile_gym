@@ -2,7 +2,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
-from tactile_gym.utils.general_utils import load_json_obj
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 from stable_baselines3.common import results_plotter
 
@@ -176,7 +175,7 @@ def plot_eval_results(saved_model_dir, show_plot=False):
 
 def plot_train_and_eval(saved_model_dir, fig=None, axs=None, show_plot=False, save_plot=False):
 
-    if fig == None:
+    if not fig:
         fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(10, 6))
         fig.tight_layout(pad=3.0)
 
@@ -300,7 +299,7 @@ def show_stacked_imgs(obs_stack, n_img_channel=3, max_display=16):
     for i in range(1, n_stack + 1):
 
         grid = (
-            make_grid(obs_stack[:max_display, (i - 1) * n_img_channel : i * n_img_channel, ...], 4)
+            make_grid(obs_stack[:max_display, (i - 1) * n_img_channel: i * n_img_channel, ...], 4)
             .permute(1, 2, 0)
             .cpu()
             .numpy()

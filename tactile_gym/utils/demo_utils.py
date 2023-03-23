@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import pybullet as pb
 
 
 def demo_rl_env(env, num_iter, action_ids, show_gui, render, print_info=False):
@@ -13,8 +14,8 @@ def demo_rl_env(env, num_iter, action_ids, show_gui, render, print_info=False):
         import imageio
 
         render_frames = []
-        log_id = env._pb.startStateLogging(
-            loggingType=env._pb.STATE_LOGGING_VIDEO_MP4, fileName=os.path.join("example_videos", "gui.mp4")
+        log_id = pb.startStateLogging(
+            loggingType=pb.STATE_LOGGING_VIDEO_MP4, fileName=os.path.join("example_videos", "gui.mp4")
         )
 
     # collection loop
@@ -25,7 +26,7 @@ def demo_rl_env(env, num_iter, action_ids, show_gui, render, print_info=False):
             if show_gui:
                 a = []
                 for action_id in action_ids:
-                    a.append(env._pb.readUserDebugParameter(action_id))
+                    a.append(pb.readUserDebugParameter(action_id))
             else:
                 a = env.action_space.sample()
 
@@ -56,17 +57,17 @@ def demo_rl_env(env, num_iter, action_ids, show_gui, render, print_info=False):
 
             q_key = ord("q")
             r_key = ord("r")
-            keys = env._pb.getKeyboardEvents()
-            if q_key in keys and keys[q_key] & env._pb.KEY_WAS_TRIGGERED:
+            keys = pb.getKeyboardEvents()
+            if q_key in keys and keys[q_key] & pb.KEY_WAS_TRIGGERED:
                 exit()
-            elif r_key in keys and keys[r_key] & env._pb.KEY_WAS_TRIGGERED:
+            elif r_key in keys and keys[r_key] & pb.KEY_WAS_TRIGGERED:
                 d = True
 
         print("Episode Return: ", ep_ret)
         print("Episode Length: ", step)
 
     if record:
-        env._pb.stopStateLogging(log_id)
+        pb.stopStateLogging(log_id)
         imageio.mimwrite(os.path.join("example_videos", "render.mp4"), np.stack(render_frames), fps=12)
 
     env.close()

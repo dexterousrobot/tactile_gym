@@ -24,6 +24,14 @@ joint_action_mapping = {
 class BaseTactileEnv(gym.Env):
     def __init__(self, env_params, robot_arm_params, tactile_sensor_params, visual_sensor_params):
 
+        self.seed()
+
+        # used to setup control of robot
+        self._sim_time_step = 1.0 / 240.0
+        self._control_rate = 1.0 / 10.0
+        self._velocity_action_repeat = int(np.floor(self._control_rate / self._sim_time_step))
+        self._max_blocking_pos_move_steps = 10
+
         self._env_params = env_params
         self._robot_arm_params = robot_arm_params
         self._tactile_sensor_params = tactile_sensor_params
@@ -45,7 +53,7 @@ class BaseTactileEnv(gym.Env):
 
         # set vars for full pybullet reset to clear cache
         self.reset_counter = 0
-        self.reset_limit = 1000
+        self.reset_limit = 100
 
     def connect_pybullet(self):
         """Connect to pybullet with/without gui enabled."""
@@ -93,6 +101,36 @@ class BaseTactileEnv(gym.Env):
             self._pb.disconnect()
         if not self._render_closed:
             cv2.destroyAllWindows()
+
+    def setup_action_space(self):
+
+        # these are used for bounds on the action space in SAC and clipping
+        # range for PPO
+        self.min_action, self.max_action = -1.0, 1.0
+
+        # define action ranges per act dim to rescale output of policy
+        if self._robot_arm_params["control_mode"] == "tcp_position_control":
+            self.lin_pos_lim = 0.001  # m
+            self.ang_pos_lim = 1 * (np.pi / 180)  # rad
+
+        elif self._robot_arm_params["control_mode"] == "tcp_velocity_control":
+            self.lin_vel_lim = 0.01  # m/s
+            self.ang_vel_lim = 5.0 * (np.pi / 180)  # rad/s
+
+        elif self._robot_arm_params["control_mode"] == "joint_position_control":
+            self.joint_pos_lim = 0.05 * (np.pi / 180)  # rad
+
+        elif self._robot_arm_params["control_mode"] == "joint_velocity_control":
+            self.joint_vel_lim = 1.0 * (np.pi / 180)  # rad/s
+
+        # setup action space
+        self.act_dim = self.get_act_dim()
+        self.action_space = gym.spaces.Box(
+            low=self.min_action,
+            high=self.max_action,
+            shape=(self.act_dim,),
+            dtype=np.float32,
+        )
 
     def setup_observation_space(self):
 
@@ -221,10 +259,8 @@ class BaseTactileEnv(gym.Env):
             clipped_target_vels = self.check_TCP_vel_lims(actions)
 
             # convert desired vels from workframe to worldframe
-            target_linvel, target_angvel = self.workvel_to_worldvel(
-                clipped_target_vels[:3], clipped_target_vels[3:]
-            )
-            transformed_actions = np.concatenate([target_linvel, target_angvel])
+            target_vel = self.workvel_to_worldvel(clipped_target_vels)
+            transformed_actions = target_vel
 
         elif self._robot_arm_params["control_mode"] == "joint_position_control":
             transformed_actions = actions
@@ -299,15 +335,23 @@ class BaseTactileEnv(gym.Env):
     def workframe_to_worldframe(self, pose):
         return inv_transform_eul(pose, self._workframe)
 
-    def worldvel_to_workvel(self, linvel, angvel):
-        work_linvel = transform_vec_eul(linvel, self._workframe)
-        work_angvel = transform_vec_eul(angvel, self._workframe)
-        return work_linvel, work_angvel
+    def worldvel_to_workvel(self, vel):
+        work_linvel = transform_vec_eul(vel[:3], self._workframe)
+        work_angvel = transform_vec_eul(vel[3:], self._workframe)
+        return np.array([*work_linvel, *work_angvel])
 
-    def workvel_to_worldvel(self, linvel, angvel):
-        world_linvel = inv_transform_vec_eul(linvel, self._workframe)
-        world_angvel = inv_transform_vec_eul(angvel, self._workframe)
-        return world_linvel, world_angvel
+    def workvel_to_worldvel(self, vel):
+        world_linvel = inv_transform_vec_eul(vel[:3], self._workframe)
+        world_angvel = inv_transform_vec_eul(vel[3:], self._workframe)
+        return np.array([*world_linvel, *world_angvel])
+
+    def worldvec_to_workvec(self, vec):
+        work_vec = transform_vec_eul(vec, self._workframe)
+        return np.array(work_vec)
+
+    def workvec_to_worldvec(self, vec):
+        world_vec = inv_transform_vec_eul(vec, self._workframe)
+        return np.array(world_vec)
 
     def check_TCP_pos_lims(self, pose):
         """
@@ -360,8 +404,8 @@ class BaseTactileEnv(gym.Env):
         """
         Returns the rgb image from a static environment camera.
         """
-        visual_rgb, _, _ = self.embodiment.get_visual_observation()
-        return visual_rgb
+        visual_rgba, _, _ = self.embodiment.get_visual_observation()
+        return visual_rgba[..., :3]
 
     def get_observation(self):
         """
