@@ -1,202 +1,94 @@
-import os, sys
-import gym
 import numpy as np
 import cv2
 
-from tactile_gym.assets import get_assets_path, add_assets_path
-from tactile_gym.rl_envs.nonprehensile_manipulation.base_object_env import BaseObjectEnv
-from tactile_gym.rl_envs.nonprehensile_manipulation.object_roll.rest_poses import (
-    rest_poses_dict,
-)
+from tactile_sim.assets.default_rest_poses import rest_poses_dict
+from tactile_sim.utils.transforms import inv_transform_eul
 
-env_modes_default = {
-    "movement_mode": "xy",
-    "control_mode": "TCP_velocity_control",
-    "rand_init_obj_pos": False,
-    "rand_obj_size": False,
-    "rand_embed_dist": False,
-    "observation_mode": "oracle",
-    "reward_mode": "dense",
-}
+from tactile_gym.assets import add_assets_path
+from tactile_gym.rl_envs.nonprehensile_manipulation.base_object_env import BaseObjectEnv
 
 
 class ObjectRollEnv(BaseObjectEnv):
     def __init__(
         self,
-        max_steps=1000,
-        image_size=[64, 64],
-        env_modes=env_modes_default,
-        show_gui=False,
-        show_tactile=False,
+        env_params={},
+        robot_arm_params={},
+        tactile_sensor_params={},
+        visual_sensor_params={},
     ):
 
-        # used to setup control of robot
-        self._sim_time_step = 1.0 / 240.0
-        self._control_rate = 1.0 / 10.0
-        self._velocity_action_repeat = int(np.floor(self._control_rate / self._sim_time_step))
-        self._max_blocking_pos_move_steps = 10
-
-        # pull params from env_modes specific to push env
-        self.rand_init_obj_pos = env_modes["rand_init_obj_pos"]
-        self.rand_obj_size = env_modes["rand_obj_size"]
-        self.rand_embed_dist = env_modes["rand_embed_dist"]
-
-        # set which robot arm to use
-        self.arm_type = env_modes["arm_type"]
-        # self.arm_type = "ur5"
-        # self.arm_type = "mg400"
-        # self.arm_type = 'franka_panda'
-        # self.arm_type = 'kuka_iiwa'
-
-        # which t_s to use
-        self.t_s_name = env_modes["tactile_sensor_name"]
-        # self.t_s_name = 'tactip'
-        # self.t_s_name = 'digit'
-        self.t_s_type = "flat"
-        self.t_s_core = "fixed"
-        self.t_s_dynamics = {"stiffness": 10.0, "damping": 100, "friction": 10.0}
-
-        # distance from goal to cause termination
+        # env specific values
         self.termination_pos_dist = 0.001
-
-        # how much penetration of the tip to optimize for
-        # randomly vary this on each episode
         self.embed_dist = 0.0015
-
-        # turn on goal visualisation
         self.visualise_goal = True
+        self.default_obj_radius = 0.0025
 
-        # work frame origin
-        self.workframe_pos = np.array([0.65, 0.0, 2 * 0.0025 - self.embed_dist])
-        self.workframe_rpy = np.array([-np.pi, 0.0, np.pi / 2])
+        # add environment specific env parameters
+        env_params["workframe"] = np.array([0.65, 0.0, (2*self.default_obj_radius) - self.embed_dist, -np.pi, 0.0, np.pi/2])
 
-        # limits
-        TCP_lims = np.zeros(shape=(6, 2))
-        TCP_lims[0, 0], TCP_lims[0, 1] = -0.05, 0.05  # x lims
-        TCP_lims[1, 0], TCP_lims[1, 1] = -0.05, 0.05  # y lims
-        TCP_lims[2, 0], TCP_lims[2, 1] = -0.01, 0.01  # z lims
-        TCP_lims[3, 0], TCP_lims[3, 1] = 0, 0  # roll lims
-        TCP_lims[4, 0], TCP_lims[4, 1] = 0, 0  # pitch lims
-        TCP_lims[5, 0], TCP_lims[5, 1] = 0, 0  # yaw lims
+        tcp_lims = np.zeros(shape=(6, 2))
+        tcp_lims[0, 0], tcp_lims[0, 1] = -0.05, 0.05  # x lims
+        tcp_lims[1, 0], tcp_lims[1, 1] = -0.05, 0.05  # y lims
+        tcp_lims[2, 0], tcp_lims[2, 1] = -0.01, 0.01  # z lims
+        tcp_lims[3, 0], tcp_lims[3, 1] = 0, 0  # roll lims
+        tcp_lims[4, 0], tcp_lims[4, 1] = 0, 0  # pitch lims
+        tcp_lims[5, 0], tcp_lims[5, 1] = 0, 0  # yaw lims
+        env_params["tcp_lims"] = tcp_lims
 
-        # initial joint positions used when reset
-        rest_poses = rest_poses_dict[self.arm_type][self.t_s_type]
+        # add environment specific robot arm parameters
+        robot_arm_params["use_tcp_frame_control"] = False
+        robot_arm_params["rest_poses"] = rest_poses_dict[robot_arm_params["type"]]
+        robot_arm_params["tcp_link_name"] = "tcp_link"
+
+        # add environment specific tactile sensor parameters
+        tactile_sensor_params["core"] = "fixed"
+        tactile_sensor_params["dynamics"] = {'stiffness': 10, 'damping': 100, 'friction': 10.0}
+
+        # add environment specific visual sensor parameters
+        visual_sensor_params["dist"] = 0.01
+        visual_sensor_params["yaw"] = 90.0
+        visual_sensor_params["pitch"] = 0.0
+        visual_sensor_params["pos"] = [0.75, 0.0, 0.00775]
+        visual_sensor_params["fov"] = 75.0
+        visual_sensor_params["near_val"] = 0.01
+        visual_sensor_params["far_val"] = 100.0
 
         # init base env
-        super(ObjectRollEnv, self).__init__(
-            max_steps,
-            image_size,
-            env_modes,
-            TCP_lims,
-            rest_poses,
-            show_gui,
-            show_tactile,
-        )
-
-        # this is needed to set some variables used for initial observation/obs_dim()
-        self.reset()
-
-        # set the observation space dependent on
-        self.setup_observation_space()
-
-    def setup_action_space(self):
-        """
-        Sets variables used for making network predictions and
-        sending correct actions to robot from raw network predictions.
-        """
-        # these are used for bounds on the action space in SAC and clipping
-        # range for PPO
-        self.min_action, self.max_action = -0.25, 0.25
-
-        # define action ranges per act dim to rescale output of policy
-        if self.control_mode == "TCP_position_control":
-
-            max_pos_change = 0.001  # m per step
-            max_ang_change = 1 * (np.pi / 180)  # rad per step
-
-            self.x_act_min, self.x_act_max = -max_pos_change, max_pos_change
-            self.y_act_min, self.y_act_max = -max_pos_change, max_pos_change
-            self.z_act_min, self.z_act_max = 0, 0
-            self.roll_act_min, self.roll_act_max = 0, 0
-            self.pitch_act_min, self.pitch_act_max = 0, 0
-            self.yaw_act_min, self.yaw_act_max = 0, 0
-
-        elif self.control_mode == "TCP_velocity_control":
-
-            max_pos_vel = 0.01  # m/s
-            max_ang_vel = 5.0 * (np.pi / 180)  # rad/s
-
-            self.x_act_min, self.x_act_max = -max_pos_vel, max_pos_vel
-            self.y_act_min, self.y_act_max = -max_pos_vel, max_pos_vel
-            self.z_act_min, self.z_act_max = 0, 0
-            self.roll_act_min, self.roll_act_max = 0, 0
-            self.pitch_act_min, self.pitch_act_max = 0, 0
-            self.yaw_act_min, self.yaw_act_max = 0, 0
-
-        # setup action space
-        self.act_dim = self.get_act_dim()
-        self.action_space = gym.spaces.Box(
-            low=self.min_action,
-            high=self.max_action,
-            shape=(self.act_dim,),
-            dtype=np.float32,
-        )
-
-    def setup_rgb_obs_camera_params(self):
-        self.rgb_cam_pos = [0.75, 0.0, 0.00775]
-        self.rgb_cam_dist = 0.01
-        self.rgb_cam_yaw = 90
-        self.rgb_cam_pitch = 0
-        self.rgb_image_size = self._image_size
-        # self.rgb_image_size = [512,512]
-        self.rgb_fov = 75
-        self.rgb_near_val = 0.01
-        self.rgb_far_val = 100
+        super(ObjectRollEnv, self).__init__(env_params, robot_arm_params, tactile_sensor_params, visual_sensor_params)
 
     def setup_object(self):
         """
-        Set vars for loading an object
+        Set vars for loading an spherical object and goal.
         """
-        # currently hardcode these for cube, could pull this from bounding box
-        self.default_obj_radius = 0.0025
-
         # define an initial position for the objects (world coords)
         self.init_obj_pos = [0.65, 0.0, self.default_obj_radius]
-
         self.init_obj_orn = self._pb.getQuaternionFromEuler([0.0, 0.0, 0.0])
 
         # textured objects don't render in direct mode
-        if self._show_gui:
-            self.object_path = add_assets_path("rl_env_assets/nonprehensile_manipulation/object_roll/sphere/sphere_tex.urdf")
+        if self._env_params['show_gui']:
+            self.object_path = add_assets_path("nonprehensile_manipulation/object_roll/sphere/sphere_tex.urdf")
         else:
-            self.object_path = add_assets_path("rl_env_assets/nonprehensile_manipulation/object_roll/sphere/sphere.urdf")
+            self.object_path = add_assets_path("nonprehensile_manipulation/object_roll/sphere/sphere.urdf")
 
-        self.goal_path = add_assets_path("rl_env_assets/nonprehensile_manipulation/object_roll/sphere/sphere.urdf")
+        self.goal_path = add_assets_path("nonprehensile_manipulation/object_roll/sphere/sphere.urdf")
 
     def reset_task(self):
         """
-        Change marble size if enabled.
-        Change embed distance if enabled.
+        Change object size.
+        Change embed distance.
         """
-        if self.rand_obj_size:
-            self.scaling_factor = self.np_random.uniform(1.0, 2.0)
-        else:
-            self.scaling_factor = 1.0
-
+        self.scaling_factor = self.np_random.uniform(1.0, 2.0)
         self.scaled_obj_radius = self.default_obj_radius * self.scaling_factor
-
-        if self.rand_embed_dist:
-            self.embed_dist = self.np_random.uniform(0.0015, 0.003)
+        self.embed_dist = self.np_random.uniform(0.0015, 0.003)
 
     def update_workframe(self):
         """
-        Change workframe on reset if needed
+        Change workframe on reset to match scaled object.
         """
         # reset workframe origin based on new obj radius
-        self.workframe_pos = np.array([0.65, 0.0, 2 * self.scaled_obj_radius - self.embed_dist])
-
-        # set the arm workframe
-        self.robot.arm.set_workframe(self.workframe_pos, self.workframe_rpy)
+        new_workframe = np.array([0.65, 0.0, (2*self.scaled_obj_radius) - self.embed_dist, -np.pi, 0.0, np.pi/2])
+        self._env_params["workframe"] = new_workframe
+        self._workframe = new_workframe
 
     def reset_object(self):
         """
@@ -204,25 +96,18 @@ class ObjectRollEnv(BaseObjectEnv):
         can also adjust physics params here.
         """
         # reset the position of the object
-        if self.rand_init_obj_pos:
-            self.init_obj_pos = [
-                0.65 + self.np_random.uniform(-0.009, 0.009),
-                0.0 + self.np_random.uniform(-0.009, 0.009),
-                self.scaled_obj_radius,
-            ]
-        else:
-            self.init_obj_pos = [0.65, 0.0, self.scaled_obj_radius]
-
+        self.init_obj_pos = [
+            0.65 + self.np_random.uniform(-0.009, 0.009),
+            0.0 + self.np_random.uniform(-0.009, 0.009),
+            self.scaled_obj_radius,
+        ]
         self.init_obj_orn = self._pb.getQuaternionFromEuler([0.0, 0.0, 0.0])
 
-        if not self.rand_obj_size:
-            self._pb.resetBasePositionAndOrientation(self.obj_id, self.init_obj_pos, self.init_obj_orn)
-        else:
-            self._pb.removeBody(self.obj_id)
-
-            self.obj_id = self._pb.loadURDF(
-                self.object_path, self.init_obj_pos, self.init_obj_orn, globalScaling=self.scaling_factor
-            )
+        # remove and reload the object
+        self._pb.removeBody(self.obj_id)
+        self.obj_id = self._pb.loadURDF(
+            self.object_path, self.init_obj_pos, self.init_obj_orn, globalScaling=self.scaling_factor
+        )
 
         # could perform object dynamics randomisations here
         self._pb.changeDynamics(
@@ -243,15 +128,15 @@ class ObjectRollEnv(BaseObjectEnv):
 
         # place goal randomly
         goal_ang = self.np_random.uniform(-np.pi, np.pi)
-        if self.rand_init_obj_pos:
-            goal_dist = self.np_random.uniform(low=0.0, high=0.015)
-        else:
-            goal_dist = self.np_random.uniform(low=0.005, high=0.015)
+        goal_dist = self.np_random.uniform(low=0.0, high=0.015)
 
-        self.goal_pos_tcp = np.array([goal_dist * np.cos(goal_ang), goal_dist * np.sin(goal_ang), 0.0])
-
-        self.goal_rpy_tcp = [0.0, 0.0, 0.0]
-        self.goal_orn_tcp = self._pb.getQuaternionFromEuler(self.goal_rpy_tcp)
+        # self.goal_pos_tcpframe = np.array([goal_dist * np.cos(goal_ang), goal_dist * np.sin(goal_ang), 0.0])
+        # self.goal_rpy_tcpframe = [0.0, 0.0, 0.0]
+        # self.goal_orn_tcpframe = self._pb.getQuaternionFromEuler(self.goal_rpy_tcp)
+        self.goal_pose_tcpframe = np.array([
+            goal_dist * np.cos(goal_ang), goal_dist * np.sin(goal_ang), 0.0,
+            0.0, 0.0, 0.0
+        ])
 
         self.update_goal()
 
@@ -259,73 +144,30 @@ class ObjectRollEnv(BaseObjectEnv):
         """
         Transforms goal in TCP frame to a pose in world frame.
         """
-        (
-            cur_tcp_pos,
-            _,
-            cur_tcp_orn,
-            _,
-            _,
-        ) = self.robot.arm.get_current_TCP_pos_vel_worldframe()
-        (
-            self.goal_pos_worldframe,
-            self.goal_orn_worldframe,
-        ) = self._pb.multiplyTransforms(cur_tcp_pos, cur_tcp_orn, self.goal_pos_tcp, self.goal_orn_tcp)
-        self.goal_rpy_worldframe = self._pb.getEulerFromQuaternion(self.goal_orn_worldframe)
 
-        # create variables for goal pose in workframe frame to use later
-        (
-            self.goal_pos_workframe,
-            self.goal_rpy_workframe,
-        ) = self.robot.arm.worldframe_to_workframe(self.goal_pos_worldframe, self.goal_rpy_worldframe)
-        self.goal_orn_workframe = self._pb.getQuaternionFromEuler(self.goal_rpy_workframe)
+        # get the current tcp pose
+        cur_tcp_pose = self.embodiment.arm.get_tcp_pose()
+
+        # transform the goal pose from the tcp frame to the world frame
+        self.cur_goal_pose_worldframe = inv_transform_eul(self.goal_pose_tcpframe, cur_tcp_pose)
+        goal_pos_worldframe = self.cur_goal_pose_worldframe[3:]
+        goal_orn_worldframe = self._pb.getQuaternionFromEuler(self.cur_goal_pose_worldframe[3:])
+
+        # transform the goal pose from the world frame to the work frame
+        self.cur_goal_pose_workframe = self.worldframe_to_workframe(self.cur_goal_pose_worldframe)
 
         # useful for visualisation
         if self.visualise_goal:
-            self._pb.resetBasePositionAndOrientation(self.goal_indicator, self.goal_pos_worldframe, self.goal_orn_worldframe)
-
-    def encode_actions(self, actions):
-        """
-        Return actions as np.array in correct places for sending to robot arm.
-        """
-
-        encoded_actions = np.zeros(6)
-
-        if self.movement_mode == "xy":
-            encoded_actions[0] = actions[0]
-            encoded_actions[1] = actions[1]
-
-        return encoded_actions
+            self._pb.resetBasePositionAndOrientation(self.goal_indicator, goal_pos_worldframe, goal_orn_worldframe)
 
     def get_step_data(self):
 
         # update the world position of the goal based on current position of TCP
         self.update_goal()
 
-        # get the cur tip pos here for once per step
-        (
-            self.cur_tcp_pos_worldframe,
-            self.cur_tcp_rpy_worldframe,
-            self.cur_tcp_orn_worldframe,
-            _,
-            _,
-        ) = self.robot.arm.get_current_TCP_pos_vel_worldframe()
-        (
-            self.cur_obj_pos_worldframe,
-            self.cur_obj_orn_worldframe,
-        ) = self.get_obj_pos_worldframe()
+        return super(ObjectRollEnv, self).get_step_data()
 
-        # get rl info
-        done = self.termination()
-
-        if self.reward_mode == "sparse":
-            reward = self.sparse_reward()
-
-        elif self.reward_mode == "dense":
-            reward = self.dense_reward()
-
-        return reward, done
-
-    def termination(self):
+    def get_termination(self):
         """
         Criteria for terminating an episode.
         """
@@ -341,31 +183,13 @@ class ObjectRollEnv(BaseObjectEnv):
 
         return False
 
-    def sparse_reward(self):
-        """
-        Calculate the reward when in sparse mode.
-        +1 is given if object reaches goal.
-        """
-        # terminate when distance to goal is < eps
-        pos_dist = self.xy_obj_dist_to_goal()
-
-        if pos_dist < self.termination_pos_dist:
-            reward = 1.0
-        else:
-            reward = 0.0
-        return reward
-
-    def dense_reward(self):
+    def get_reward(self):
         """
         Calculate the reward when in dense mode.
         """
         W_obj_goal_pos = 1.0
-
         goal_pos_dist = self.xy_obj_dist_to_goal()
-
-        # sum rewards with multiplicative factors
         reward = -(W_obj_goal_pos * goal_pos_dist)
-
         return reward
 
     def get_oracle_obs(self):
@@ -373,35 +197,15 @@ class ObjectRollEnv(BaseObjectEnv):
         Use for sanity checking, no tactile observation just features that should
         be enough to learn reasonable policies.
         """
-        # get sim info on object
-        cur_obj_pos_workframe, cur_obj_orn_workframe = self.get_obj_pos_workframe()
-        (
-            cur_obj_lin_vel_workframe,
-            cur_obj_ang_vel_workframe,
-        ) = self.get_obj_vel_workframe()
-
-        # get sim info on TCP
-        (
-            tcp_pos_workframe,
-            tcp_rpy_workframe,
-            tcp_orn_workframe,
-            tcp_lin_vel_workframe,
-            tcp_ang_vel_workframe,
-        ) = self.robot.arm.get_current_TCP_pos_vel_workframe()
 
         # stack into array
         observation = np.hstack(
             [
-                *tcp_pos_workframe,
-                *tcp_orn_workframe,
-                *tcp_lin_vel_workframe,
-                *tcp_ang_vel_workframe,
-                *cur_obj_pos_workframe,
-                *cur_obj_orn_workframe,
-                *cur_obj_lin_vel_workframe,
-                *cur_obj_ang_vel_workframe,
-                *self.goal_pos_tcp,
-                *self.goal_orn_tcp,
+                *self.cur_tcp_pose_workframe,
+                *self.cur_tcp_vel_workframe,
+                *self.cur_obj_pose_workframe,
+                *self.cur_obj_vel_workframe,
+                *self.goal_pose_tcpframe,
                 self.scaled_obj_radius,
             ]
         )
@@ -413,15 +217,8 @@ class ObjectRollEnv(BaseObjectEnv):
         features needed to help complete task.
         Goal pose in TCP frame.
         """
-        feature_array = np.array([*self.goal_pos_tcp])
+        feature_array = np.array([*self.goal_pose_tcpframe[:2]])
         return feature_array
-
-    def get_act_dim(self):
-        """
-        Returns action dimensions, dependent on the env/task.
-        """
-        if self.movement_mode == "xy":
-            return 2
 
     def overlay_goal_on_image(self, tactile_image):
         """
@@ -431,16 +228,18 @@ class ObjectRollEnv(BaseObjectEnv):
         # get the coords of the goal in image space
         # min/max from 20mm radius tip + extra for border
         min, max = -0.021, 0.021
-        norm_tcp_pos_x = (self.goal_pos_tcp[0] - min) / (max - min)
-        norm_tcp_pos_y = (self.goal_pos_tcp[1] - min) / (max - min)
+        norm_tcp_pos_x = (self.goal_pose_tcpframe[0] - min) / (max - min)
+        norm_tcp_pos_y = (self.goal_pose_tcpframe[1] - min) / (max - min)
+
+        image_size = self._tactile_sensor_params["image_size"]
 
         goal_coordinates = (
-            int(norm_tcp_pos_x * self.rgb_image_size[0]),
-            int(norm_tcp_pos_y * self.rgb_image_size[1]),
+            int(norm_tcp_pos_x * image_size[0]),
+            int(norm_tcp_pos_y * image_size[1]),
         )
 
         # Draw a circle at the goal
-        marker_size = int(self.rgb_image_size[0] / 32)
+        marker_size = int(image_size[0] / 32)
         overlay_img = cv2.drawMarker(
             tactile_image,
             goal_coordinates,
@@ -470,7 +269,7 @@ class ObjectRollEnv(BaseObjectEnv):
         tactile_array = cv2.cvtColor(tactile_array, cv2.COLOR_GRAY2RGB)
 
         # rezise tactile to match rgb if rendering in higher res
-        if self._image_size != self.rgb_image_size:
+        if self._tactile_sensor_params["image_size"] != self._visual_sensor_params["image_size"]:
             tactile_array = cv2.resize(tactile_array, tuple(self.rgb_image_size))
 
         # add goal indicator in approximate position

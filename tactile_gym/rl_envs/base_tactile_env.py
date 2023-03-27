@@ -238,6 +238,11 @@ class BaseTactileEnv(gym.Env):
         Converts an action defined in the workframe to an action defined in the worldframe
         """
 
+        # if enabled, initially convert actions from tcp to workframe
+        if 'tcp' in self._robot_arm_params['control_mode'] and self._robot_arm_params["use_tcp_frame_control"]:
+            actions = self.tcpvel_to_worldvel(actions)
+            actions = self.worldvel_to_workvel(actions)
+
         if self._robot_arm_params["control_mode"] == "tcp_position_control":
 
             # get the current tcp pose and increment it using the action
@@ -352,6 +357,26 @@ class BaseTactileEnv(gym.Env):
     def workvec_to_worldvec(self, vec):
         world_vec = inv_transform_vec_eul(vec, self._workframe)
         return np.array(world_vec)
+
+    def worldframe_to_tcpframe(self, pose):
+        cur_tcp_frame = self.embodiment.arm.get_tcp_pose()
+        return transform_eul(pose, cur_tcp_frame)
+
+    def tcpframe_to_worldframe(self, pose):
+        cur_tcp_frame = self.embodiment.arm.get_tcp_pose()
+        return inv_transform_eul(pose, cur_tcp_frame)
+
+    def worldvel_to_tcpvel(self, vel):
+        cur_tcp_frame = self.embodiment.arm.get_tcp_pose()
+        tcp = transform_vec_eul(vel[:3], cur_tcp_frame)
+        tcp_angvel = transform_vec_eul(vel[3:], cur_tcp_frame)
+        return np.array([*tcp, *tcp_angvel])
+
+    def tcpvel_to_worldvel(self, vel):
+        cur_tcp_frame = self.embodiment.arm.get_tcp_pose()
+        world_linvel = inv_transform_vec_eul(vel[:3], cur_tcp_frame)
+        world_angvel = inv_transform_vec_eul(vel[3:], cur_tcp_frame)
+        return np.array([*world_linvel, *world_angvel])
 
     def check_TCP_pos_lims(self, pose):
         """

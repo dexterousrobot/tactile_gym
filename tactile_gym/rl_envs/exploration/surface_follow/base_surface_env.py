@@ -39,6 +39,7 @@ class BaseSurfaceEnv(BaseTactileEnv):
         env_params["tcp_lims"] = tcp_lims
 
         # add environment specific robot arm parameters
+        robot_arm_params["use_tcp_frame_control"] = False
         robot_arm_params["rest_poses"] = rest_poses_dict[robot_arm_params["type"]]
         robot_arm_params["tcp_link_name"] = "tcp_link"
 
@@ -288,8 +289,8 @@ class BaseSurfaceEnv(BaseTactileEnv):
 
         # update the workframe to a new position relative to surface
         self.reset_task()
-        init_TCP_pose = self.update_init_pose()
-        self.embodiment.reset(reset_tcp_pose=init_TCP_pose)
+        init_tcp_pose = self.update_init_pose()
+        self.embodiment.reset(reset_tcp_pose=init_tcp_pose)
 
         # just to change variables to the reset pose incase needed before taking a step
         self.get_step_data()

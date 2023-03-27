@@ -164,8 +164,8 @@ class EdgeFollowEnv(BaseTactileEnv):
         """
         Update the initial pose to be taken on reset.
         """
-        init_TCP_pose = self.workframe_to_worldframe(np.array([0, 0, self.embed_dist, 0.0, 0.0, 0.0]))
-        return init_TCP_pose
+        init_tcp_pose = self.workframe_to_worldframe(np.array([0.0, 0.0, self.embed_dist, 0.0, 0.0, 0.0]))
+        return init_tcp_pose
 
     def reset(self):
         """

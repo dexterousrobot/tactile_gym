@@ -1,7 +1,9 @@
-from tactile_gym.utils.demo_utils import demo_rl_env
+import argparse
 import gym
-import tactile_gym.rl_envs
 import pybullet as pb
+
+from tactile_gym.utils.demo_utils import demo_rl_env
+import tactile_gym.rl_envs
 
 
 def main():
@@ -12,10 +14,18 @@ def main():
     print_info = False
     image_size = [128, 128]  # sets both rgb and tactile images
 
-    # env_id = 'example_arm-v0'
-    # env_id = 'edge_follow-v0'
-    # env_id = 'surface_follow-v0'
-    env_id = 'surface_follow-v1'
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-env",
+        type=str,
+        default='example_arm-v0',
+        help="""Options: {
+                example_arm-v0,
+                edge_follow-v0, surface_follow-v0, surface_follow-v1,
+                object_roll-v0, object_push-v0, object_balance-v0}"""
+    )
+    args = parser.parse_args()
+    env_id = args.env
 
     env_params = {
         "max_steps": 10_000,
@@ -38,13 +48,14 @@ def main():
         # "type": "mg400",
 
         # "control_mode": "tcp_position_control",
-        # "control_mode": "tcp_velocity_control",
-        # "control_dofs": ['x', 'y', 'z', 'Rx', 'Ry', 'Rz'],
+        "control_mode": "tcp_velocity_control",
+        "control_dofs": ['x', 'y', 'z', 'Rx', 'Ry', 'Rz'],
+        # "control_dofs": ['x', 'y'],
 
         # the type of control used
         # "control_mode": "joint_position_control",
-        "control_mode": "joint_velocity_control",
-        "control_dofs": ['J1', 'J2', 'J3', 'J4', 'J5', 'J6'],
+        # "control_mode": "joint_velocity_control",
+        # "control_dofs": ['J1', 'J2', 'J3', 'J4', 'J5', 'J6'],
         # "control_dofs": ['J1', 'J2', 'J3', 'J4', 'J5', 'J6', 'J7'],
     }
 
@@ -53,9 +64,12 @@ def main():
         # "type": "standard_digit",
         # "type": "standard_digitac",
 
+        # "type": "flat_tactip",
+        # "type": "right_angle_tactip",
+
         "image_size": image_size,
         "turn_off_border": False,
-        "show_tactile": False,
+        "show_tactile": True,
     }
 
     visual_sensor_params = {

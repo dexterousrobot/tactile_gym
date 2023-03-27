@@ -1,60 +1,43 @@
 import numpy as np
 
-from tactile_gym.robots.arms.robot import Robot
+from tactile_sim.utils.setup_pb_utils import load_standard_environment
+from tactile_sim.utils.setup_pb_utils import set_debug_camera
+from tactile_sim.embodiments.embodiments import VisuoTactileArmEmbodiment
+from tactile_sim.utils.transforms import inv_transform_eul, transform_eul
+from tactile_sim.utils.pybullet_draw_utils import draw_link_frame
+
 from tactile_gym.rl_envs.base_tactile_env import BaseTactileEnv
 
 
 class BaseObjectEnv(BaseTactileEnv):
     def __init__(
         self,
-        max_steps=1000,
-        image_size=[64, 64],
-        env_modes=dict(),
-        TCP_lims=np.zeros(0),
-        rest_poses=np.zeros(0),
-        show_gui=False,
-        show_tactile=False,
+        env_params={},
+        robot_arm_params={},
+        tactile_sensor_params={},
+        visual_sensor_params={},
     ):
-        super(BaseObjectEnv, self).__init__(max_steps, image_size, show_gui, show_tactile, arm_type=env_modes["arm_type"])
 
-        # set modes for easy adjustment
-        self.movement_mode = env_modes["movement_mode"]
-        self.control_mode = env_modes["control_mode"]
-        self.observation_mode = env_modes["observation_mode"]
-        self.reward_mode = env_modes["reward_mode"]
+        super(BaseObjectEnv, self).__init__(env_params, robot_arm_params, tactile_sensor_params, visual_sensor_params)
 
-        # setup variables
-        self.setup_object()
-        self.setup_action_space()
-
-        # load environment objects
-        self.load_environment()
-        self.load_object(self.visualise_goal)
-
-        # load the robot arm with a t_s attached
-        self.robot = Robot(
+        self.embodiment = VisuoTactileArmEmbodiment(
             self._pb,
-            rest_poses=rest_poses,
-            workframe_pos=self.workframe_pos,
-            workframe_rpy=self.workframe_rpy,
-            TCP_lims=TCP_lims,
-            image_size=image_size,
-            turn_off_border=False,
-            arm_type=self.arm_type,
-            t_s_name=self.t_s_name,
-            t_s_type=self.t_s_type,
-            t_s_core=self.t_s_core,
-            t_s_dynamics=self.t_s_dynamics,
-            show_gui=self._show_gui,
-            show_tactile=self._show_tactile,
+            robot_arm_params=robot_arm_params,
+            tactile_sensor_params=tactile_sensor_params,
+            visual_sensor_params=visual_sensor_params
         )
 
-    def setup_action_space(self):
-        """
-        Sets variables used for making network predictions and
-        sending correct actions to robot from raw network predictions.
-        """
-        pass
+        # load environment objects
+        load_standard_environment(self._pb)
+        set_debug_camera(self._pb, visual_sensor_params)
+        self.setup_object()
+        self.load_object(self.visualise_goal)
+        self.load_trajectory()
+        self.reset()
+
+        # setup variables
+        self.setup_action_space()
+        self.setup_observation_space()
 
     def setup_object(self):
         """
@@ -74,10 +57,25 @@ class BaseObjectEnv(BaseTactileEnv):
             self._pb.changeVisualShape(self.goal_indicator, -1, rgbaColor=[1, 0, 0, 0.5])
             self._pb.setCollisionFilterGroupMask(self.goal_indicator, -1, 0, 0)
 
+        # can be used to connect object and tip
+        self.apply_constraints()
+
     def reset_object(self):
         """
         Reset the base pose of an object on reset,
         can also adjust physics params here.
+        """
+        pass
+
+    def apply_constraints(self):
+        """
+        Add constraint to connect object and tip.
+        """
+        pass
+
+    def load_trajectory(self):
+        """
+        Used in the pushing enviroment to set a trajectory of goals
         """
         pass
 
@@ -101,55 +99,42 @@ class BaseObjectEnv(BaseTactileEnv):
 
     def update_init_pose(self):
         """
-        update the workframe to match object size if varied
+        Update the workframe to match object size if varied
         """
-        # default doesn't change from workframe origin
-        init_TCP_pos = np.array([0.0, 0.0, 0.0])
-        init_TCP_rpy = np.array([0.0, 0.0, 0.0])
-        return init_TCP_pos, init_TCP_rpy
+        init_tcp_pose = self.workframe_to_worldframe(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+        return init_tcp_pose
 
-    def get_obj_pos_worldframe(self):
+    def get_obj_pose(self):
         """
-        Get the current position of the object, return as arrays.
+        Get the current pose of the object, return as arrays.
         """
         obj_pos, obj_orn = self._pb.getBasePositionAndOrientation(self.obj_id)
-        return np.array(obj_pos), np.array(obj_orn)
-
-    def get_obj_pos_workframe(self):
-        obj_pos, obj_orn = self.get_obj_pos_worldframe()
         obj_rpy = self._pb.getEulerFromQuaternion(obj_orn)
+        return np.array([*obj_pos, *obj_rpy])
 
-        obj_pos_workframe, obj_rpy_workframe = self.robot.arm.worldframe_to_workframe(obj_pos, obj_rpy)
-        obj_orn_workframe = self._pb.getQuaternionFromEuler(obj_rpy_workframe)
-        return obj_pos_workframe, obj_orn_workframe
+    def get_obj_pose_workframe(self):
+        obj_pose = self.get_obj_pos_worldframe()
+        return self.worldframe_to_workframe(obj_pose)
 
-    def get_obj_vel_worldframe(self):
+    def get_obj_vel(self):
         """
         Get the current velocity of the object, return as arrays.
         """
         obj_lin_vel, obj_ang_vel = self._pb.getBaseVelocity(self.obj_id)
-        return np.array(obj_lin_vel), np.array(obj_ang_vel)
+        return np.array([*obj_lin_vel, *obj_ang_vel])
 
     def get_obj_vel_workframe(self):
         """
         Get the current velocity of the object, return as arrays.
         """
-        obj_lin_vel, obj_ang_vel = self.get_obj_vel_worldframe()
-        obj_lin_vel, obj_ang_vel = self.robot.arm.worldvel_to_workvel(obj_lin_vel, obj_ang_vel)
-        return np.array(obj_lin_vel), np.array(obj_ang_vel)
+        obj_vel = self.get_obj_vel_worldframe()
+        return self.worldvel_to_workvel(obj_vel)
 
-    def worldframe_to_objframe(self, pos, rpy):
-        """
-        Transforms a pose in world frame to a pose in work frame.
-        """
-        pos = np.array(pos)
-        rpy = np.array(rpy)
-        orn = np.array(self._pb.getQuaternionFromEuler(rpy))
+    def worldframe_to_objframe(self, pose):
+        return transform_eul(pose, self._obj_frame)
 
-        inv_objframe_pos, inv_objframe_orn = self._pb.invertTransform(self.cur_obj_pos_worldframe, self.cur_obj_orn_worldframe)
-        objframe_pos, objframe_orn = self._pb.multiplyTransforms(inv_objframe_pos, inv_objframe_orn, pos, orn)
-
-        return np.array(objframe_pos), np.array(objframe_orn)
+    def objframe_to_worldframe(self, pose):
+        return inv_transform_eul(pose, self._obj_frame)
 
     def reset(self):
         """
@@ -168,18 +153,12 @@ class BaseObjectEnv(BaseTactileEnv):
         self.reset_task()
         self.update_workframe()
 
-        init_TCP_pos, init_TCP_rpy = self.update_init_pose()
-        self.robot.reset(reset_TCP_pos=init_TCP_pos, reset_TCP_rpy=init_TCP_rpy)
-
-        # for debug
-        # set_trace()
-        # self.robot.arm.print_joint_pos_vel()
-
-        # reset object
+        # reset object and goal
         self.reset_object()
-
-        # define a new goal position based on init pose of object
         self.make_goal()
+
+        init_tcp_pose = self.update_init_pose()
+        self.embodiment.reset(reset_tcp_pose=init_tcp_pose)
 
         # just to change variables to the reset pose incase needed before taking
         # a step
@@ -190,6 +169,27 @@ class BaseObjectEnv(BaseTactileEnv):
 
         return self._observation
 
+    def get_step_data(self):
+
+        # get state of tcp and obj
+        self.cur_tcp_pose_worldframe = self.embodiment.arm.get_tcp_pose()
+        self.cur_tcp_pose_workframe = self.worldframe_to_workframe(self.cur_tcp_pose_worldframe)
+
+        self.cur_tcp_vel_worldframe = self.embodiment.arm.get_tcp_vel()
+        self.cur_tcp_vel_workframe = self.worldvel_to_workvel(self.cur_tcp_vel_worldframe)
+
+        self.cur_obj_pose_worldframe = self.get_obj_pose()
+        self.cur_obj_pose_workframe = self.worldframe_to_workframe(self.cur_obj_pose_worldframe)
+
+        self.cur_obj_vel_worldframe = self.get_obj_vel()
+        self.cur_obj_vel_workframe = self.worldvel_to_workvel(self.cur_obj_vel_worldframe)
+
+        # get rl info
+        done = self.get_termination()
+        reward = self.get_reward()
+
+        return reward, done
+
     def full_reset(self):
         """
         Pybullet can encounter some silent bugs, particularly when unloading and
@@ -197,128 +197,55 @@ class BaseObjectEnv(BaseTactileEnv):
         clear caches.
         """
         self._pb.resetSimulation()
-        self.load_environment()
+        self.embodiment.full_reset()
+        load_standard_environment(self._pb)
+        set_debug_camera(self._pb, self._visual_sensor_params)
         self.load_object(self.visualise_goal)
-        self.robot.full_reset()
         self.reset_counter = 0
-
-    def encode_actions(self, actions):
-        """
-        Return actions as np.array in correct places for sending to ur5.
-        """
-        pass
 
     def xyz_tcp_dist_to_goal(self):
         """
         xyz L2 distance from the current tip position to the goal.
         """
-        dist = np.linalg.norm(self.cur_tcp_pos_worldframe - self.goal_pos_worldframe)
+        dist = np.linalg.norm(self.cur_tcp_pose_worldframe[:3] - self.cur_goal_pose_worldframe[:3])
         return dist
 
     def xyz_obj_dist_to_goal(self):
         """
         xyz L2 distance from the current obj position to the goal.
         """
-        dist = np.linalg.norm(self.cur_obj_pos_worldframe - self.goal_pos_worldframe)
+        dist = np.linalg.norm(self.cur_obj_pose_worldframe[:3] - self.cur_goal_pose_worldframe[:3])
         return dist
 
     def xy_obj_dist_to_goal(self):
         """
         xyz L2 distance from the current obj position to the goal.
         """
-        dist = np.linalg.norm(self.cur_obj_pos_worldframe[:2] - self.goal_pos_worldframe[:2])
+        dist = np.linalg.norm(self.cur_obj_pose_worldframe[:2] - self.cur_goal_pose_worldframe[:2])
         return dist
 
     def xyz_tcp_dist_to_obj(self):
         """
         xyz L2 distance from the current tip position to the obj center.
         """
-        dist = np.linalg.norm(self.cur_tcp_pos_worldframe - self.cur_obj_pos_worldframe)
+        dist = np.linalg.norm(self.cur_tcp_pose_worldframe[:3] - self.cur_obj_pose_worldframe[:3])
         return dist
 
     def orn_obj_dist_to_goal(self):
         """
         Distance between the current obj orientation and goal orientation.
         """
-        dist = np.arccos(np.clip((2 * (np.inner(self.goal_orn_worldframe, self.cur_obj_orn_worldframe) ** 2)) - 1, -1, 1))
+        cur_goal_orn_worldframe = self._pb.getQuaternionFromEuler(self.cur_goal_pose_worldframe[3:])
+        cur_obj_orn_worldframe = self._pb.getQuaternionFromEuler(self.cur_obj_pose_worldframe[3:])
+        dist = np.arccos(np.clip((2 * (np.inner(cur_goal_orn_worldframe, cur_obj_orn_worldframe) ** 2)) - 1, -1, 1))
         return dist
 
-    def termination(self):
-        """
-        Criteria for terminating an episode.
-        """
-        pass
-
-    def sparse_reward(self):
-        """
-        Calculate the reward when in sparse mode.
-        """
-        pass
-
-    def dense_reward(self):
-        """
-        Calculate the reward when in dense mode.
-        """
-        pass
-
-    def get_act_dim(self):
-        """
-        Returns action dimensions, dependent on the env/task.
-        """
-        pass
-
     """
-    Debugging
+    ==================== Debug Tools ====================
     """
 
-    def draw_obj_workframe(self):
-        self._pb.addUserDebugLine(
-            [0, 0, 0],
-            [0.1, 0, 0],
-            [1, 0, 0],
-            parentObjectUniqueId=self.obj_id,
-            parentLinkIndex=-1,
-            lifeTime=0.1,
-        )
-        self._pb.addUserDebugLine(
-            [0, 0, 0],
-            [0, 0.1, 0],
-            [0, 1, 0],
-            parentObjectUniqueId=self.obj_id,
-            parentLinkIndex=-1,
-            lifeTime=0.1,
-        )
-        self._pb.addUserDebugLine(
-            [0, 0, 0],
-            [0, 0, 0.1],
-            [0, 0, 1],
-            parentObjectUniqueId=self.obj_id,
-            parentLinkIndex=-1,
-            lifeTime=0.1,
-        )
+    def draw_objframe(self, lifetime=0.1):
+        draw_link_frame(self.obj_id, -1, lifetime=lifetime)
 
-    def draw_goal_workframe(self):
-        self._pb.addUserDebugLine(
-            [0, 0, 0],
-            [0.1, 0, 0],
-            [1, 0, 0],
-            parentObjectUniqueId=self.goal_id,
-            parentLinkIndex=-1,
-            lifeTime=0.1,
-        )
-        self._pb.addUserDebugLine(
-            [0, 0, 0],
-            [0, 0.1, 0],
-            [0, 1, 0],
-            parentObjectUniqueId=self.goal_id,
-            parentLinkIndex=-1,
-            lifeTime=0.1,
-        )
-        self._pb.addUserDebugLine(
-            [0, 0, 0],
-            [0, 0, 0.1],
-            [0, 0, 1],
-            parentObjectUniqueId=self.goal_id,
-            parentLinkIndex=-1,
-            lifeTime=0.1,
-        )
+    def draw_goalframe(self, lifetime=0.1):
+        draw_link_frame(self.goal_id, -1, lifetime=lifetime)

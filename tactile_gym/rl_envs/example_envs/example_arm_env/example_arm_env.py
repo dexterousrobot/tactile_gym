@@ -25,6 +25,7 @@ class ExampleArmEnv(BaseTactileEnv):
         ]).reshape((6, 2))
 
         # add environment specific robot arm parameters
+        robot_arm_params["use_tcp_frame_control"] = False
         robot_arm_params["rest_poses"] = rest_poses_dict[robot_arm_params["type"]]
         robot_arm_params["tcp_link_name"] = "tcp_link"
 
