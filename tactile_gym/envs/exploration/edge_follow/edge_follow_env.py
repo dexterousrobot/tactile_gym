@@ -6,7 +6,7 @@ from tactile_sim.utils.setup_pb_utils import set_debug_camera
 from tactile_sim.embodiments.embodiments import VisuoTactileArmEmbodiment
 
 from tactile_gym.assets import add_assets_path
-from tactile_gym.rl_envs.base_tactile_env import BaseTactileEnv
+from tactile_gym.envs.base_tactile_env import BaseTactileEnv
 
 
 class EdgeFollowEnv(BaseTactileEnv):
@@ -31,6 +31,7 @@ class EdgeFollowEnv(BaseTactileEnv):
         env_params["tcp_lims"] = tcp_lims
 
         # add environment specific robot arm parameters
+        robot_arm_params["use_tcp_frame_control"] = False
         robot_arm_params["rest_poses"] = rest_poses_dict[robot_arm_params["type"]]
         robot_arm_params["tcp_link_name"] = "tcp_link"
 

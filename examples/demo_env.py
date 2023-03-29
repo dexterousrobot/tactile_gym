@@ -3,7 +3,8 @@ import gym
 import pybullet as pb
 
 from tactile_gym.utils.demo_utils import demo_rl_env
-import tactile_gym.rl_envs
+from tactile_gym.sb3_helpers.params import import_parameters
+import tactile_gym.envs
 
 
 def main():
@@ -27,55 +28,37 @@ def main():
     args = parser.parse_args()
     env_id = args.env
 
-    env_params = {
-        "max_steps": 10_000,
-        "show_gui": True,
+    # import default params for env
+    env_args = import_parameters(env_id, None)
+    env_params = env_args["env_params"]
+    robot_arm_params = env_args["robot_arm_params"]
+    tactile_sensor_params = env_args["tactile_sensor_params"]
+    visual_sensor_params = env_args["visual_sensor_params"]
 
-        "observation_mode": "oracle",
-        # 'observation_mode': 'tactile',
-        # 'observation_mode': 'visual',
-        # 'observation_mode': 'visuotactile',
-        # 'observation_mode': 'tactile_and_feature',
-        # 'observation_mode': 'visual_and_feature',
-        # 'observation_mode': 'visuotactile_and_feature',
-    }
+    # overwrite default params for testing
+    env_params["max_steps"] = 10_000
+    env_params["show_gui"] = True
+    env_params["observation_mode"] = "oracle"
+    # env_params["observation_mode"] = "tactile"
+    # env_params["observation_mode"] = "visual"
+    # env_params["observation_mode"] = "visuotactile"
 
-    robot_arm_params = {
-        "type": "ur5",
-        # "type": "franka_panda",
-        # "type": "kuka_iiwa",
-        # "type": "cr3",
-        # "type": "mg400",
+    robot_arm_params["type"] = "ur5"
+    # robot_arm_params["type"] = "franka_panda"
+    # robot_arm_params["type"] = "kuka_iiwa"
+    # robot_arm_params["type"] = "cr3"
+    # robot_arm_params["type"] = "mg400"
 
-        # "control_mode": "tcp_position_control",
-        "control_mode": "tcp_velocity_control",
-        "control_dofs": ['x', 'y', 'z', 'Rx', 'Ry', 'Rz'],
-        # "control_dofs": ['x', 'y'],
+    tactile_sensor_params["show_tactile"] = False
+    tactile_sensor_params["image_size"] = image_size
+    # tactile_sensor_params["type"] = "standard_tactip"
+    # tactile_sensor_params["type"] = "standard_digit"
+    # tactile_sensor_params["type"] = "standard_digitac"
+    # tactile_sensor_params["type"] = "flat_tactip"
+    # tactile_sensor_params["type"] = "right_angle_tactip"
 
-        # the type of control used
-        # "control_mode": "joint_position_control",
-        # "control_mode": "joint_velocity_control",
-        # "control_dofs": ['J1', 'J2', 'J3', 'J4', 'J5', 'J6'],
-        # "control_dofs": ['J1', 'J2', 'J3', 'J4', 'J5', 'J6', 'J7'],
-    }
-
-    tactile_sensor_params = {
-        "type": "standard_tactip",
-        # "type": "standard_digit",
-        # "type": "standard_digitac",
-
-        # "type": "flat_tactip",
-        # "type": "right_angle_tactip",
-
-        "image_size": image_size,
-        "turn_off_border": False,
-        "show_tactile": True,
-    }
-
-    visual_sensor_params = {
-        'image_size': image_size,
-        'show_vision': False
-    }
+    visual_sensor_params["show_vision"] = False
+    visual_sensor_params["image_size"] = image_size
 
     env = gym.make(
         id=env_id,

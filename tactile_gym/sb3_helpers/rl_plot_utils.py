@@ -293,7 +293,6 @@ def show_stacked_imgs(obs_stack, n_img_channel=3, max_display=16):
     import matplotlib.pyplot as plt
 
     fig = plt.figure(figsize=(12, 12))
-    n_batch = int(obs_stack.shape[0])
     n_stack = int(obs_stack.shape[1] / n_img_channel)
 
     for i in range(1, n_stack + 1):

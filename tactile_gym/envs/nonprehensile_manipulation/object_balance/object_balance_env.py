@@ -3,8 +3,8 @@ import numpy as np
 from tactile_sim.utils.pybullet_draw_utils import draw_vector
 
 from tactile_gym.assets import add_assets_path
-from tactile_gym.rl_envs.nonprehensile_manipulation.base_object_env import BaseObjectEnv
-from tactile_gym.rl_envs.nonprehensile_manipulation.object_balance.rest_poses import rest_poses_dict
+from tactile_gym.envs.nonprehensile_manipulation.base_object_env import BaseObjectEnv
+from tactile_gym.envs.nonprehensile_manipulation.object_balance.rest_poses import rest_poses_dict
 
 
 class ObjectBalanceEnv(BaseObjectEnv):

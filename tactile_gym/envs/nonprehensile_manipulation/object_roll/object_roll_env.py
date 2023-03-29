@@ -5,7 +5,7 @@ from tactile_sim.assets.default_rest_poses import rest_poses_dict
 from tactile_sim.utils.transforms import inv_transform_eul
 
 from tactile_gym.assets import add_assets_path
-from tactile_gym.rl_envs.nonprehensile_manipulation.base_object_env import BaseObjectEnv
+from tactile_gym.envs.nonprehensile_manipulation.base_object_env import BaseObjectEnv
 
 
 class ObjectRollEnv(BaseObjectEnv):

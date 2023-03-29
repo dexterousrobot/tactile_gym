@@ -5,7 +5,7 @@ from tactile_sim.utils.setup_pb_utils import load_standard_environment
 from tactile_sim.utils.setup_pb_utils import set_debug_camera
 from tactile_sim.embodiments.embodiments import VisuoTactileArmEmbodiment
 
-from tactile_gym.rl_envs.base_tactile_env import BaseTactileEnv
+from tactile_gym.envs.base_tactile_env import BaseTactileEnv
 
 
 class ExampleArmEnv(BaseTactileEnv):

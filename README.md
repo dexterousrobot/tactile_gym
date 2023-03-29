@@ -76,14 +76,14 @@ to run a user controllable example environment.
 Usage: You can specify a desired robot arm and a tactile sensor, e.g. by setting `arm_type = "MG400", tactile_sensor_name = "DigiTac"`  in the env_params.py.
 
 | **Env. Name (w/ MG400)**        | `TacTip`            |     `DigiTac`       |       `DIGIT`       |  
-| ------------------- |  ------------------ |  ------------------ | ------------------- | 
+| ------------------- |  ------------------ |  ------------------ | ------------------- |
 | `edge_follow-v0`     |  :heavy_check_mark: |  :heavy_check_mark: |  :heavy_check_mark: |
 | `surface_follow-v2`   |  :heavy_check_mark: |  :heavy_check_mark: |  :heavy_check_mark: |
 | `object_push-v0`      |  :heavy_check_mark: |  :heavy_check_mark: |  :heavy_check_mark: |
 
 
 | **Env. Name &nbsp;&nbsp;&nbsp;(w/ UR5)** &nbsp;&nbsp; | `TacTip`            |     `DigiTac`       |       `DIGIT`       |  
-| ------------------- |  ------------------ |  ------------------ | ------------------- | 
+| ------------------- |  ------------------ |  ------------------ | ------------------- |
 | `edge_follow-v0`      |  :heavy_check_mark: |  :heavy_check_mark: |  :heavy_check_mark: |
 | `surface_follow-v0`   |  :heavy_check_mark: |   :heavy_check_mark:  |   :heavy_check_mark:  |
 | `surface_follow-v1`   |  :heavy_check_mark: |   :heavy_check_mark:  |   :heavy_check_mark:  |
@@ -153,7 +153,7 @@ RL models for DIGIT and DigiTac: these can be downloaded [here](https://drive.go
 and placed in `tactile_gym/sb3_helpers/saved_models`.
 
 ```
-python tactile_gym/sb3_helpers/eval_agent_utils.py
+python tactile_gym/sb3_helpers/eval_agent.py
 ```
 
 Example PPO/RAD_PPO agents, trained via SB3 are provided for all environments and all observation spaces. These can be downloaded [here](https://drive.google.com/drive/folders/1stIhPc0HBN8fcJfMq6e-wHcsp6VpJafQ?usp=sharing)
@@ -194,7 +194,7 @@ The majority of testing is done on the simulated UR5 robot arm. The Franka Emika
 @InProceedings{church2021optical,
      title={Tactile Sim-to-Real Policy Transfer via Real-to-Sim Image Translation},
      author={Church, Alex and Lloyd, John and Hadsell, Raia and Lepora, Nathan F.},
-     booktitle={Proceedings of the 5th Conference on Robot Learning}, 
+     booktitle={Proceedings of the 5th Conference on Robot Learning},
      year={2022},
      editor={Faust, Aleksandra and Hsu, David and Neumann, Gerhard},
      volume={164},

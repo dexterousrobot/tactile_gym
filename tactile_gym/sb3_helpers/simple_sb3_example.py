@@ -8,7 +8,7 @@ from sb3_contrib import RAD_SAC, RAD_PPO
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
 
-import tactile_gym.rl_envs
+import tactile_gym.envs
 from tactile_gym.sb3_helpers.custom.custom_torch_layers import CustomCombinedExtractor
 
 if __name__ == "__main__":

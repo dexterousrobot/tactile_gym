@@ -6,7 +6,7 @@ from tactile_sim.embodiments.embodiments import VisuoTactileArmEmbodiment
 from tactile_sim.utils.transforms import inv_transform_eul, transform_eul
 from tactile_sim.utils.pybullet_draw_utils import draw_link_frame
 
-from tactile_gym.rl_envs.base_tactile_env import BaseTactileEnv
+from tactile_gym.envs.base_tactile_env import BaseTactileEnv
 
 
 class BaseObjectEnv(BaseTactileEnv):
@@ -201,6 +201,7 @@ class BaseObjectEnv(BaseTactileEnv):
         load_standard_environment(self._pb)
         set_debug_camera(self._pb, self._visual_sensor_params)
         self.load_object(self.visualise_goal)
+        self.load_trajectory()
         self.reset_counter = 0
 
     def xyz_tcp_dist_to_goal(self):
