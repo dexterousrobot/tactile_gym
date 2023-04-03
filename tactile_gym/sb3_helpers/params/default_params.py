@@ -99,6 +99,8 @@ rl_params_sac = {
     "n_eval_episodes": 10,
     "n_envs": 1,
     "eval_freq": 1e4,
+    "norm_obs": False,
+    "norm_reward": False,
 }
 
 sac_params = {
@@ -112,12 +114,12 @@ sac_params = {
         "net_arch": dict(pi=[256, 256], qf=[256, 256]),
         "activation_fn": nn.Tanh,
     },
-    "learning_rate": 3e-4,
-    "buffer_size": int(1e5),
-    "learning_starts": 1e4,
-    "batch_size": 64,
+    "learning_rate": 7.5e-5,
+    "buffer_size": int(1e6),
+    "learning_starts": 1e5,
+    "batch_size": 2048,
     "tau": 0.005,
-    "gamma": 0.95,
+    "gamma": 0.99,
     "train_freq": 1,
     "gradient_steps": 1,
     "action_noise": None,
