@@ -1,40 +1,22 @@
-# Tactile-Gym 2.0: RL suite for tactile robotics (with multiple tactile sensors)
+# Tactile-Gym: RL suite for tactile robotics 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 <!-- [Project Website](https://sites.google.com/my.bristol.ac.uk/tactile-gym-sim2real/home) &nbsp;&nbsp;• -->
 **Tactile Gym 2.0**: [Project Website](https://sites.google.com/my.bristol.ac.uk/tactilegym2/home) &nbsp;&nbsp;•&nbsp;&nbsp;[Paper](https://ieeexplore.ieee.org/abstract/document/9847020)
 
 **Tactile Gym 1.0**: [Project Website](https://sites.google.com/my.bristol.ac.uk/tactile-gym-sim2real/home) &nbsp;&nbsp;•&nbsp;&nbsp;[Paper](http://arxiv.org/abs/2106.08796)
 
-This repo is built on top of the [Tactile Gym](https://github.com/ac-93/tactile_gym) and now is open-sourced as [Tactile Gym 2.0](https://github.com/yijionglin/tactile_gym_2), which has been extended to include three tactile sensors (DigiTac, DIGIT, TacTip) of two widely-used yet fundamentally different types: [Tactip style](https://www.liebertpub.com/doi/full/10.1089/soro.2017.0052) and [Gelsight style](https://www.mdpi.com/1424-8220/17/12/2762). To make it easier for the research community of tactile robotics, we have also integrated a low-cost off-the-sheld industrial-level-accuracy desktop robot DOBOT MG400 for three learning environments as shown below, and successfully transferred the learned policies into the real world without any further fine-tuning (checkout our [project website](https://sites.google.com/my.bristol.ac.uk/tactilegym2/home) for more sim-to-real demonstrations).
+This repo contains a suite of reinfocement learning environments built on top of [Tactile Sim](https://github.com/dexterousrobot/tactile_sim). These environments use tactile data as the main form of observations when solving tasks. This can be paired with [Tactile Sim2Real](https://github.com/dexterousrobot/tactile_sim2real) domain adaption for transferring learned policies to the real world.
 
-<!-- This repo provides a suite of [PyBullet](https://github.com/bulletphysics/bullet3) reinforcement learning environments targeted towards using tactile data as the main form of observation. -->
-
-<!-- <p align="center">
+<p align="center">
   <img width="256" src="docs/readme_videos/edge_follow.gif">
   <img width="256" src="docs/readme_videos/surface_follow.gif"> <br>
   <img width="256" src="docs/readme_videos/object_roll.gif">
   <img width="256" src="docs/readme_videos/object_push.gif">
   <img width="256" src="docs/readme_videos/object_balance.gif">
-</p> -->
-
-<p align="center">
-  <img width="256" src="docs/readme_videos/sim_mg400_digitac_push.gif"> &nbsp;&nbsp;&nbsp;&nbsp;   
-  <img  width="256" src="docs/readme_videos/sim_mg400_tactip_surf.gif"> &nbsp;&nbsp;&nbsp;&nbsp;   
-  <img  width="256" src="docs/readme_videos/sim_mg400_digit_edge.gif"> <br>
-  <img width="256" src="docs/readme_videos/sim_ur5_digit_surf.gif"> &nbsp;&nbsp;&nbsp;&nbsp;
-  <img width="256" src="docs/readme_videos/sim_ur5_digitac_balance.gif">  &nbsp;&nbsp;&nbsp;&nbsp;
-  <img width="256" src="docs/readme_videos/object_roll.gif"> &nbsp;&nbsp;&nbsp;&nbsp;
 </p>
-
 
 This repo refers to the paper "*Sim-to-real Deep Reinforcement Learning for Comparing Low-cost High-Resolution Robot Touch*". If you find it useful for your research, please cite our paper.
-
-<p align="center">
-  <img width="800" src="docs/readme_images/paper_overview.png"><br>
-  The main framework
-</p>
 
 ### Content ###
 - [Installation](#installation)
@@ -46,54 +28,28 @@ This repo refers to the paper "*Sim-to-real Deep Reinforcement Learning for Comp
 - [Pretrained Agents](#pretrained-agents)
 - [Alternate Robot Arms](#preliminary-support-for-alternate-robot-arms)
 - [Additional Info](#additional-info)
-<!-- - [Environment Details](#environment-details) -->
 
 
 ### Installation ###
 This repo has only been developed and tested with Ubuntu 18.04 and python 3.8.
 
-```
-# TODO: install via pypi
-git clone https://github.com/yijionglin/tactile_gym_2
+```console
+git clone https://github.com/dexterousrobot/tactile_gym
 cd tactile_gym
-python setup.py install
+pip install -e .
 ```
 
-### Testing Environments ###
+Demonstration files are provided in the example directory. From the base directory run
 
-Demonstration files are provided for all environments in the example directory. For example, from the base directory run
 ```
-python examples/demo_example_env.py
+python examples/demo_env.py -env example_arm-v0
 ```
-to run a user controllable example environment.
 
+alternate envs can be specified but setting the `-env` argurment to any of the following: `example_arm-v0` `edge_follow-v0` `surface_follow-v0` `object_roll-v0` `object_push-v0` `object_balance-v0`.
 
-### Tactile Robot Environment Details ###
+Usage: You can specify a desired robot arm and a tactile sensor and other environment parameters within the `demo_env.py` file.
 
-
-#### 1. Availability ####
-
-Usage: You can specify a desired robot arm and a tactile sensor, e.g. by setting `arm_type = "MG400", tactile_sensor_name = "DigiTac"`  in the env_params.py.
-
-| **Env. Name (w/ MG400)**        | `TacTip`            |     `DigiTac`       |       `DIGIT`       |  
-| ------------------- |  ------------------ |  ------------------ | ------------------- |
-| `edge_follow-v0`     |  :heavy_check_mark: |  :heavy_check_mark: |  :heavy_check_mark: |
-| `surface_follow-v2`   |  :heavy_check_mark: |  :heavy_check_mark: |  :heavy_check_mark: |
-| `object_push-v0`      |  :heavy_check_mark: |  :heavy_check_mark: |  :heavy_check_mark: |
-
-
-| **Env. Name &nbsp;&nbsp;&nbsp;(w/ UR5)** &nbsp;&nbsp; | `TacTip`            |     `DigiTac`       |       `DIGIT`       |  
-| ------------------- |  ------------------ |  ------------------ | ------------------- |
-| `edge_follow-v0`      |  :heavy_check_mark: |  :heavy_check_mark: |  :heavy_check_mark: |
-| `surface_follow-v0`   |  :heavy_check_mark: |   :heavy_check_mark:  |   :heavy_check_mark:  |
-| `surface_follow-v1`   |  :heavy_check_mark: |   :heavy_check_mark:  |   :heavy_check_mark:  |
-| `surface_follow-v2`   |  :heavy_check_mark: |  :heavy_check_mark: |  :heavy_check_mark: |
-| `object_roll-v0`      |  :heavy_check_mark: |  :heavy_multiplication_x: |  :heavy_multiplication_x: |
-| `object_push-v0`      |  :heavy_check_mark: |  :heavy_check_mark: |  :heavy_check_mark: |
-| `object_balance-v0`   |  :heavy_check_mark: |   :heavy_check_mark:  |   :heavy_check_mark:  |
-
-<!-- :heavy_multiplication_x:  -->
-#### 2. Environment Details ####
+### Environment Details ###
 
 | **Env. Name** | Description |
 | :---: | :--- |
@@ -104,17 +60,6 @@ Usage: You can specify a desired robot arm and a tactile sensor, e.g. by setting
 | `object_roll-v0`   | <ul><li>A small spherical object of random size is placed on the table.</li><li>A flat tactile sensor is initialised to touch the object at a random location relative to the sensor.</li><li>A goal location is generated in the sensor frame.</li><li>The objective is to manipulate the object to the goal location.</li></ul> |
 | `object_push-v0`   | <ul><li>A cube object is placed on the table and the sensor is initialised to touch the object (in a right-angle configuration).</li><li>A trajectory of points is generated through OpenSimplex Noise.</li><li>The objective is to push the object along the trajectory, when the current target point has been reached it is incremented along the trajectory until no points are left.</li></ul> |
 | `object_balance-v0`   | <ul><li>Similar to a 2d CartPole environment.</li><li>An unstable pole object is balanced on the tip of a sensor pointing upwards.</li><li>A random force pertubation is applied to the object to cause instability.</li><li>The objective is to learn planar actions to counteract the rotation of the object and mantain its balanced position.</li></ul> |
-
-
-#### 3. Tactile Sensors: ####
-
-| **Sensor Name** | Description |
-| :---: | :--- |
-| `TacTip` | [Tactip](https://www.liebertpub.com/doi/full/10.1089/soro.2017.0052) is a soft, curved, 3D-printed tactile skin with an internal array of pins tipped with markers, which are used to amplify the surface deformation from physical contact against a stimulus.  |
-| `DIGIT`   |  [DIGIT](https://digit.ml/) shares the same principle of the [Gelsight tactile sensor](https://www.mdpi.com/1424-8220/17/12/2762), but can be fabricated at low cost and is of a size suitable for integration of some robotic hands, such as on the fingertips of the Allegro. |
-| `DigiTac`   | DigiTac is an adapted version of the DIGIT and the TacTip, whereby the 3D-printed skin of a TacTip is customized to integrated onto the DIGIT housing, while keeping the camera and lighting system. In other words, this sensor outputs tactile images of the same dimension as the DIGIT, but with a soft biomimetic skin like other TacTip sensors. |
-
-
 
 
 ### Observation Details ###
@@ -130,6 +75,7 @@ All environments contain 4 main modes of observation:
 
 When additional information is required to solve a task, such as goal locations, appending `_and_feature` to the observation name will return the complete observation.
 
+
 ### Training Agents ###
 
 The environments use the [OpenAI Gym](https://gym.openai.com/) interface so should be compatible with most reinforcement learning librarys.
@@ -137,40 +83,6 @@ The environments use the [OpenAI Gym](https://gym.openai.com/) interface so shou
 We use [stable-baselines3](https://github.com/DLR-RM/stable-baselines3) for all training, helper scripts are provided in `tactile_gym/sb3_helpers/`
 
 A simple experiment can be run with `simple_sb3_example.py`, a full training script can be run with `train_agent.py`. Experiment hyper-params are in the `parameters` directory.
-
-**Training with image augmentations:** If intending to use image augmentations for training, as done in the paper, then [this](https://github.com/ac-93/stable-baselines3-contrib) fork of sb3 contrib is required. (**TODO: Contribute this to sb3_contrib**).
-
-### Re-training Agents ###
-
-Now you can retrain your model by:
-```bash
-python train_agent.py --if_retrain=True --retrain_path=~/saved_models/env_name/algo_name/
-```
-
-This can help you fast train a policy that already learned with one robot for another robot with the same tactile sensor instead of from scratch.
-### Pretrained Agents ###
-RL models for DIGIT and DigiTac: these can be downloaded [here](https://drive.google.com/drive/folders/1VVrnMVaQeX05C9Uo4126ATDNIPFpf2Ga?usp=sharing)
-and placed in `tactile_gym/sb3_helpers/saved_models`.
-
-```
-python tactile_gym/sb3_helpers/eval_agent.py
-```
-
-Example PPO/RAD_PPO agents, trained via SB3 are provided for all environments and all observation spaces. These can be downloaded [here](https://drive.google.com/drive/folders/1stIhPc0HBN8fcJfMq6e-wHcsp6VpJafQ?usp=sharing)
-and placed in `tactile_gym/examples/enjoy`.
-
-In order to demonstrate a pretrained agent from the base directory run
-```
-python examples/demo_trained_agent.py -env='env_name' -obs='obs_type' -algo='algo_name'
-```
-
-### Preliminary Support for Alternate Robot Arms ###
-
-The majority of testing is done on the simulated UR5 robot arm. The Franka Emika Panda and Kuka LBR iiwa robot arms are additionally provided however there may be bugs when using these arms. Particularly, workframes may need to be adjusted to ensure that arms can comfortably reach all the neccessary configurations. These arms can be used by changing the `self.arm_type` flag within the code.
-
-<p align="center">
-  <img src="docs/readme_videos/surf_arm_transfer.gif">
-</p>
 
 
 ### Bibtex ###

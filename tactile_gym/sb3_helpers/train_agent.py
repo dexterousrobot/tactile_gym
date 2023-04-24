@@ -99,8 +99,8 @@ def train_agent(
 if __name__ == "__main__":
 
     # choose which RL algo to use
-    # algo_name = 'ppo'
-    algo_name = 'sac'
+    algo_name = 'ppo'
+    # algo_name = 'sac'
 
     # env_id = "edge_follow-v0"
     env_id = 'surface_follow-v0'
